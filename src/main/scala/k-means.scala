@@ -53,19 +53,46 @@ case class Cluster (){
 
     var sum:Double       = 0
     var wasAlreadyInCalc = false
-
+    // sum all elements up wich are currently in the cluster, set a marker if the elements which needs to be check is already in here
     for(el <- elements){
       if( el == i) wasAlreadyInCalc = true
       sum = sum + field.getElementVal(el)
     }
-    var tmpmean = ( sum + field.getElementVal(i) ) / ( elements.length + 1 )
-    if(wasAlreadyInCalc) tmpmean = sum / elements.length
 
-    var tmpvariance:Double = 0
-    for(el <- elements){
-      if( el != i ) tmpvariance = tmpvariance + calcVariance(tmpmean, field.getElementVal(el))
+    // if the cluster got no elements or the element which is checked is already in, return 0.0 for variance
+    if(wasAlreadyInCalc && elements.length == 1 || !wasAlreadyInCalc && elements.length == 0) return 0.0    
+    var tmpsum:Double = 0
+    // if it is already in cluster, tmpsum is the sum without that value, if it isnt, tmpsum is the sum with that value
+    if(wasAlreadyInCalc){
+       tmpsum = sum - field.getElementVal(i)
+    }else{
+       tmpsum = sum + field.getElementVal(i)
     }
-    return math.abs(tmpvariance - variance)
+
+    var mean1:Double = 0 //with new value
+    var mean2:Double = 0 //withoyt new value
+
+    // if it was already in here, mean1 is just sum divided by elements, and mean2 tmpsum divided by elements minus1
+    if(wasAlreadyInCalc){
+      mean1 = sum / elements.length
+      mean2 = tmpsum / (elements.length - 1)
+    }else{
+    //if it wasnt here, mean1 is tmpsum (sum with new value) divided by length plus one, and mean2 just sum divided by elements
+      mean1 = tmpsum / ( elements.length + 1)
+      mean2 = sum / elements.length
+    }
+    
+
+    var variance1:Double = 0
+    var variance2:Double = 0
+    for(el <- elements){
+      variance1 = variance1 + calcVariance(mean1, field.getElementVal(el))
+      variance2 = variance2 + calcVariance(mean2, field.getElementVal(el))
+    }
+
+    variance1 = variance1 + calcVariance(mean1, field.getElementVal(i))
+
+    return math.abs(variance1 - variance2)
   }
 
 }
@@ -75,9 +102,16 @@ object kmeans{
   def main(args: Array[String]): Unit = {
     var testData: Array[ClusterObject] = new Array[ClusterObject](10)
 
-    for( i <- 0 until testData.length){
-      testData(i) = new ClusterObject(i.toDouble)
-    }
+    testData(0) = new ClusterObject(111.6)
+    testData(2) = new ClusterObject(1.1)
+    testData(1) = new ClusterObject(1.2)
+    testData(3) = new ClusterObject(10.3)
+    testData(4) = new ClusterObject(10.6)
+    testData(5) = new ClusterObject(111.1)
+    testData(6) = new ClusterObject(10.5)
+    testData(7) = new ClusterObject(111.5)
+    testData(8) = new ClusterObject(0.9)
+    testData(9) = new ClusterObject(111.7)
 
     lloyd(testData,3)
   }
@@ -115,8 +149,6 @@ object kmeans{
       if(( i  == elementsPerCluster && leftover == 0) || ( i == elementsPerCluster + 1 && usedLeftOver )){
         i = 0
         usedLeftOver = false
-        //println("[DEBUG] Cluster no "+ i.toString + "clusterElements length: " + cl.copy().getElements.length.toString)
-        //cl.recalculate()
         initialDistribution.addCluster(cl)
       } 
     }
@@ -125,11 +157,11 @@ object kmeans{
   
   def printClusterDistribution(field: ClusterField, iteration: Int){
     var i = 0
+    println("\nAfter Iteration: "+iteration.toString)
     for(cl <- field.getClusters()){
       print("Cluster "+i.toString+" elements: [")
-//      print("Length: "+cl.getElements().length.toString)
       for(k <- cl.getElements()){
-        print(k.toString+", ")
+        print(field.getElementVal(k).toString+", ")
       }
       println("]")
       i = i + 1
@@ -161,7 +193,7 @@ object kmeans{
         for(cl <- clusters.getClusters()){
            if(cl.containsElement(elIndex)) beforeClusterIndex = clusterIndex
            val diff = cl.getVarianceDiff(clusters, elIndex)
-           if(clusterMinIndex == -1 || diff < clusterMinIndex){
+           if(clusterMinIndex == -1 || diff < minDiff){
              minDiff         = diff
              clusterMinIndex = clusterIndex
            }
@@ -169,7 +201,6 @@ object kmeans{
         }
         if(beforeClusterIndex != -1 && beforeClusterIndex != clusterMinIndex){
           hasNotImproved=false
-          println("Found a better cluster!")
           var clusterIndex = 0
           for(cl <- clusters.getClusters()){
             if(clusterIndex == beforeClusterIndex) cl.removeElement(elIndex)
@@ -179,8 +210,9 @@ object kmeans{
         }
         
       }
+      iteration = iteration + 1
     }
-  printClusterDistribution(clusters, 1)
+  printClusterDistribution(clusters, iteration)
   return null
   }
 }
