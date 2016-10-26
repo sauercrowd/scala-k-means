@@ -13,6 +13,7 @@ case class ClusterField () {
   private var elements:        ArrayBuffer[ClusterComparable] = new ArrayBuffer[ClusterComparable]()
   private var clusterElements: ListBuffer[Cluster]            = new ListBuffer[Cluster]()
 
+  def getElementIndex(a: ClusterComparable) = elements.indexOf(a)
   def getElementVal(i: Int): Double = elements(i).getComparableVal()
   def addElement(el: ClusterComparable) : Int = {
     elements+=el
@@ -36,33 +37,16 @@ case class Cluster (){
   private var variance: Double = 0
   private var elements: ListBuffer[Int] = new ListBuffer[Int]()
   
-//  def getMean() = mean
-//  def getVariance() = variance
   def addElement(el: Int){
     elements += el
   }
+
+  def containsElement(el: Int) = elements.contains(el)
 
   def getElements() = elements
   def removeElement(el: Int){
     elements -= el
   }
-
-  /*def recalculate(field: ClusterField) : Unit = {
-    val calcVariance = (mean: Double, x: Double) => (mean - x) * (mean - x)
-
-    // calculate mean
-    var sum:Double = 0
-    for(el <- elements){
-      sum = sum + field.getElementVal(el)
-    }
-    mean = sum / elements.length
-
-    // calculate cluster variance
-    variance = 0
-    for(el <- elements){
-      variance = variance + calcVariance(mean, field.getElementVal(el))
-    }
-  }*/
 
   def getVarianceDiff(field: ClusterField, i: Int): Double = {
     val calcVariance = (mean: Double, x: Double) => (mean - x) * (mean - x)
@@ -79,7 +63,7 @@ case class Cluster (){
 
     var tmpvariance:Double = 0
     for(el <- elements){
-      tmpvariance = tmpvariance + calcVariance(tmpmean, field.getElementVal(el))
+      if( el != i ) tmpvariance = tmpvariance + calcVariance(tmpmean, field.getElementVal(el))
     }
     return math.abs(tmpvariance - variance)
   }
@@ -139,21 +123,6 @@ object kmeans{
     return initialDistribution
   }
   
-  /*def getClusterIndex(clusters: Array[Cluster], x: Double) : Int = {
-    val variance = (mean: Double, x: Double) => ( mean - x ) * ( mean - x )
-
-    var minVariance 	  = variance(clusters(0).getMean(), x)
-    var minVarianceIndex  = 0
-
-    for(i <- 1 until clusters.length){
-      if(variance(clusters(i).getMean(),x) < minVariance){
-        minVariance = variance(clusters(i).getMean(),x)
-        minVarianceIndex = i
-      }
-    }
-    return minVarianceIndex
-  }*/
-
   def printClusterDistribution(field: ClusterField, iteration: Int){
     var i = 0
     for(cl <- field.getClusters()){
@@ -171,13 +140,47 @@ object kmeans{
     val clusters = getInitialCluster(dataset, k)
     printClusterDistribution(clusters, 0)
     var iteration = 0
-    
-    while(true){
-      var hasNotImproved = true
-      
-      if(hasNotImproved) return clusters
-    }
 
-    return clusters
+    //as long as the cluster improves, continue to run
+    var hasNotImproved = false
+    while(!hasNotImproved){
+      hasNotImproved = true
+      //iterate through all available elements
+      for(el <- clusters.getElements()){
+        // get the index for the element, since these are stored in the clusters
+        var elIndex:Int            = clusters.getElementIndex(el)
+        // cluster in Which the element was before
+        var beforeClusterIndex:Int = -1
+        // cluster index which got currently checked
+        var clusterIndex:Int       = 0
+        // cluster which got the minimal variance difference
+        var clusterMinIndex:Int    = -1
+        // the actual difference of that
+        var minDiff:Double         = -1
+        // iterate through all clusters
+        for(cl <- clusters.getClusters()){
+           if(cl.containsElement(elIndex)) beforeClusterIndex = clusterIndex
+           val diff = cl.getVarianceDiff(clusters, elIndex)
+           if(clusterMinIndex == -1 || diff < clusterMinIndex){
+             minDiff         = diff
+             clusterMinIndex = clusterIndex
+           }
+           clusterIndex = clusterIndex + 1
+        }
+        if(beforeClusterIndex != -1 && beforeClusterIndex != clusterMinIndex){
+          hasNotImproved=false
+          println("Found a better cluster!")
+          var clusterIndex = 0
+          for(cl <- clusters.getClusters()){
+            if(clusterIndex == beforeClusterIndex) cl.removeElement(elIndex)
+            if(clusterIndex == clusterMinIndex)    cl.addElement(elIndex)
+            clusterIndex = clusterIndex + 1
+          }
+        }
+        
+      }
+    }
+  printClusterDistribution(clusters, 1)
+  return null
   }
 }
