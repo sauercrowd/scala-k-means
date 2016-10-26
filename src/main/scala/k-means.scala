@@ -1,5 +1,7 @@
 import scala.collection.mutable.ListBuffer
 import scala.collection.mutable.ArrayBuffer
+import scala.util.Random
+
 
 trait ClusterComparable{
   def getComparableVal(): Double
@@ -20,11 +22,6 @@ case class ClusterField () {
     return elements.length - 1
   }
   def getElements() = elements
-  def removeElement(i: Int) : Boolean = {
-    if(elements.length <= i) return false
-    elements.remove(i)
-    return true
-  }
   def addCluster(c: Cluster) : Unit = {
     clusterElements += c
   }
@@ -102,21 +99,36 @@ object kmeans{
   def main(args: Array[String]): Unit = {
     var testData: Array[ClusterObject] = new Array[ClusterObject](10)
 
-    testData(0) = new ClusterObject(111.6)
-    testData(2) = new ClusterObject(1.1)
-    testData(1) = new ClusterObject(1.2)
-    testData(3) = new ClusterObject(10.3)
-    testData(4) = new ClusterObject(10.6)
-    testData(5) = new ClusterObject(111.1)
-    testData(6) = new ClusterObject(10.5)
-    testData(7) = new ClusterObject(111.5)
-    testData(8) = new ClusterObject(0.9)
-    testData(9) = new ClusterObject(111.7)
+    testData(0) = new ClusterObject(1.1)
+    testData(1) = new ClusterObject(1.3)
+    testData(2) = new ClusterObject(1.8)
+    testData(3) = new ClusterObject(4)
+    testData(4) = new ClusterObject(7)
+    testData(5) = new ClusterObject(8.1)
+    testData(6) = new ClusterObject(7.5)
+    testData(7) = new ClusterObject(3)
+    testData(8) = new ClusterObject(10)
+    testData(9) = new ClusterObject(20)
 
     lloyd(testData,3)
   }
 
-  def getInitialCluster(dataset: Array[_ <: ClusterComparable], k: Int): ClusterField = {
+  def shuffleDistribution(dataset: Array[_ <: ClusterComparable]) : Array[ClusterComparable] = {
+    var r = new ArrayBuffer[ClusterComparable]()
+    for(el <- dataset){
+      if(r.length == 0){
+        r += el
+      }else{
+        val rnd = Random.nextInt(r.length+1)
+        if(rnd == r.length) r += el
+        else r.insert(rnd, el)
+      }
+    }
+    return r.toArray
+  }
+
+  def getInitialCluster(d: Array[_ <: ClusterComparable], k: Int): ClusterField = {
+    val dataset = shuffleDistribution(d)
     //elements that need to be distributed after elementsPerCluster
     var leftover = dataset.length % k
     // how many alements should a cluster contain
@@ -160,8 +172,10 @@ object kmeans{
     println("\nAfter Iteration: "+iteration.toString)
     for(cl <- field.getClusters()){
       print("Cluster "+i.toString+" elements: [")
-      for(k <- cl.getElements()){
-        print(field.getElementVal(k).toString+", ")
+      val els = cl.getElements()
+      print(field.getElementVal(els(0)).toString)
+      for(k <- 1 until els.length){
+        print(", "+field.getElementVal(els(k)).toString)
       }
       println("]")
       i = i + 1
@@ -169,6 +183,12 @@ object kmeans{
   }
 
   def lloyd(dataset: Array[_ <: ClusterComparable], k: Int): ClusterField = {
+    print("Input:\n["+dataset(0).getComparableVal())
+
+    for(i <- 1 until dataset.length){
+      print(", " + dataset(i).getComparableVal())
+    }
+    println("]\n")
     val clusters = getInitialCluster(dataset, k)
     printClusterDistribution(clusters, 0)
     var iteration = 0
@@ -213,6 +233,6 @@ object kmeans{
       iteration = iteration + 1
     }
   printClusterDistribution(clusters, iteration)
-  return null
+  return clusters
   }
 }
